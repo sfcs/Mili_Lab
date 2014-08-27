@@ -1,4 +1,14 @@
 #!/usr/bin/perl
+#
+# FormatEdgeRatios.pl
+#
+# Takes output from the ImageJ Edge Ratio Macro and formats
+# it nicely.
+#
+# Pass Results.xls file on STDIN, formatted results printed to STDOUT
+#
+# Sarah Clatterbuck Soper 
+# 2014.08.27
 
 $debug = 0;
 

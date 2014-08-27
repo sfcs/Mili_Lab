@@ -1,4 +1,6 @@
-// 
+// Edge Ratio ImageJ Macro
+// Sarah Clatterbuck Soper
+// 2014.08.27
 
 run("Clear Results");
 type = "Tiff";
@@ -62,7 +64,8 @@ for (i=0; i<imageList.length; i++) {
 	labels[j] = "Channel "+j+1;
 	defaults[j] = false;
       }
-      Dialog.create("Which channels do I process?");
+      Dialog.create("Which channels?");
+      Dialog.addMessage("Which channels do I process?");
       Dialog.addCheckboxGroup(rows,columns,labels,defaults);
       Dialog.show();
 
@@ -70,13 +73,16 @@ for (i=0; i<imageList.length; i++) {
 	channelList[j] = Dialog.getCheckbox();
       }
 
-      Dialog.create("Which channel is the nuclear stain?");
-      Dialog.addChoice("Channel:", allChannels);
+      dapi = 0;
+
+      Dialog.create("Nuclear stain?");
+      Dialog.addMessage("If you want to mask out the nuclei, select the\nchannel to use for the nuclear mask.");
+      chooseChannels = Array.concat("", allChannels);
+      Dialog.addChoice("Channel:", chooseChannels);
       Dialog.show();
 
       dapi = Dialog.getChoice();
-      //dapi = 4;
-
+   
       prevChannels = channels;
     }
 
@@ -86,41 +92,56 @@ for (i=0; i<imageList.length; i++) {
     steppix=stepMicrons/VoxWidth;
     print(imagePath+" steppix="+steppix);
 
-    // Create a mask from the DAPI channel to remove nuclei from the cell mask
-
     print("About to make the mask files for "+imageName);
 
-    selectWindow(imageName);
-    Stack.setChannel(dapi);
-    setThreshold(512, 4096);
-    run("Create Mask");
-    run("16-bit");
-    dapiMASK = getImageID();
-    //saveAs(type,dir3+"NUCLEUS-"+imageName); 
-	    
+    // Create a mask from the DAPI channel to remove nuclei from the cell mask
+
+    dapiMASK = 0;
+
+    if (dapi > 0) {
+      selectWindow(imageName);
+      Stack.setChannel(dapi);
+      setThreshold(512, 4096);
+      run("Create Mask");
+      run("16-bit");
+      dapiMASK = getImageID();
+    }
+    
     // Make the MASK files
     print("Opening original"+oldMaskPath);
     open(oldMaskPath);
     selectWindow(maskName);
     title1=getTitle(); 
     print("Now processing "+title1);
+    corner = getPixel(1, 1);
+    print("Corner is "+corner);
+    if(corner > 0){
+      run("Invert");
+    }
     run("16-bit");
-    //run("Invert");
-    imageCalculator('multiply create', title1, dapiMASK);
-    run("Divide...", "value=255");
-    trimmedMask = getTitle();
-    print("Trimmed mask is "+trimmedMask);
-    //saveAs(type,dir3+trimmedMask); 
-    selectWindow(title1);
-    imageCalculator('xor create', title1, trimmedMask);
-    saveAs(type,dir3+title1); 
-    run("Measure");
+
+    if (dapiMASK != 0) {
+      imageCalculator('multiply create', title1, dapiMASK);
+      run("Divide...", "value=255");
+      trimmedMask = getTitle();
+      selectWindow(title1);
+      imageCalculator('xor create', title1, trimmedMask);
+      saveAs(type,dir3+title1);
+      run("Measure");
+      selectWindow(title1);
+      run("Minimum...", "radius="+steppix);
+      imageCalculator("xor", title1, trimmedMask);
+      saveAs(type,dir3+"INNER-"+title1);
+      run("Measure");
+    } else {
+      saveAs(type,dir3+title1);
+      run("Measure");
+      run("Minimum...", "radius="+steppix);
+      saveAs(type,dir3+"INNER-"+title1);
+      run("Measure");
+    }
         
-    selectWindow(title1);
-    run("Minimum...", "radius="+steppix);
-    imageCalculator("xor", title1, trimmedMask);
-    saveAs(type,dir3+"INNER-"+title1);
-    run("Measure");
+
              
     maskList = newArray(maskPath, innerMaskPath);
 
