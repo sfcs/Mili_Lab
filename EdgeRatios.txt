@@ -1,0 +1,161 @@
+// 
+
+run("Clear Results");
+type = "Tiff";
+setBatchMode(true); 
+
+run("Set Measurements...", "  integrated display redirect=None decimal=2");
+
+while (nImages>0) { 
+  selectImage(nImages); 
+  close(); 
+ }
+
+dir = getDirectory("Choose a Directory "); 
+dir2 = getDirectory("Choose the old MASK Directory ");
+dir3 = getDirectory("Choose the new MASK Directory ");
+
+// What radius shall we use?
+    
+stepMicrons = 2;
+Dialog.create("How far in from the edge of the cell shall we mask?");
+Dialog.addNumber("Microns from edge of cell:", stepMicrons);
+Dialog.show();
+stepMicrons = Dialog.getNumber();
+
+imageList = getFileList(dir);
+prevChannels = "0";
+
+while (nImages>0) { 
+  selectImage(nImages); 
+  close();
+ } 
+
+for (i=0; i<imageList.length; i++) { 
+  // We are iterating through the Image files;
+  showStatus("Procesing image " + (i+1) + " of " + lengthOf(imageList));
+  showProgress((i+1)/lengthOf(imageList));
+  imagePath = dir+imageList[i];
+  maskName = "MASK-"+imageList[i];
+  maskPath = dir3+maskName;
+  oldMaskPath = dir2+maskName;
+  innerMaskPath = dir3+"INNER-"+maskName;	
+  
+  if (endsWith(imagePath, ".tif")) { 
+    open(imagePath);	 
+    imageName=getTitle();
+    selectWindow(imageName);
+    getDimensions(width, height, channels, slices, frames);
+
+    // Determine which channels to process
+
+    if (prevChannels != channels) {
+      rows = channels;
+      columns = 1;
+      n = rows*columns;
+      labels = newArray(n);
+      defaults = newArray(n);
+      channelList = newArray(n);
+      allChannels = newArray(n);
+      for (j=0; j<n; j++) {
+	allChannels[j] = j+1;
+	labels[j] = "Channel "+j+1;
+	defaults[j] = false;
+      }
+      Dialog.create("Which channels do I process?");
+      Dialog.addCheckboxGroup(rows,columns,labels,defaults);
+      Dialog.show();
+
+      for (j=0; j<n; j++) {
+	channelList[j] = Dialog.getCheckbox();
+      }
+
+      Dialog.create("Which channel is the nuclear stain?");
+      Dialog.addChoice("Channel:", allChannels);
+      Dialog.show();
+
+      dapi = Dialog.getChoice();
+      //dapi = 4;
+
+      prevChannels = channels;
+    }
+
+    // Get the size of a Voxel so we can calculate the step for the inner mask
+    selectWindow(imageName);
+    getVoxelSize(unit, VoxWidth, VoxHeight, VoxDepth);
+    steppix=stepMicrons/VoxWidth;
+    print(imagePath+" steppix="+steppix);
+
+    // Create a mask from the DAPI channel to remove nuclei from the cell mask
+
+    print("About to make the mask files for "+imageName);
+
+    selectWindow(imageName);
+    Stack.setChannel(dapi);
+    setThreshold(512, 4096);
+    run("Create Mask");
+    run("16-bit");
+    dapiMASK = getImageID();
+    //saveAs(type,dir3+"NUCLEUS-"+imageName); 
+	    
+    // Make the MASK files
+    print("Opening original"+oldMaskPath);
+    open(oldMaskPath);
+    selectWindow(maskName);
+    title1=getTitle(); 
+    print("Now processing "+title1);
+    run("16-bit");
+    //run("Invert");
+    imageCalculator('multiply create', title1, dapiMASK);
+    run("Divide...", "value=255");
+    trimmedMask = getTitle();
+    print("Trimmed mask is "+trimmedMask);
+    //saveAs(type,dir3+trimmedMask); 
+    selectWindow(title1);
+    imageCalculator('xor create', title1, trimmedMask);
+    saveAs(type,dir3+title1); 
+    run("Measure");
+        
+    selectWindow(title1);
+    run("Minimum...", "radius="+steppix);
+    imageCalculator("xor", title1, trimmedMask);
+    saveAs(type,dir3+"INNER-"+title1);
+    run("Measure");
+             
+    maskList = newArray(maskPath, innerMaskPath);
+
+    for (j=0; j<maskList.length; j++) {
+      print("Opening "+maskList[j]);
+      open(maskList[j]);
+      maskName=getTitle();
+    
+      imageCalculator('Multiply create 32-bit stack', imageName, maskName);
+      run("Divide...", "value=255 stack");
+      rename("RESULT-"+maskName);
+      if (channels > 1) {
+	run("Split Channels");
+	for (k=0; k<channelList.length; k++) {
+	  if (channelList[k] == true) {
+	    currentChannel = k+1;
+	    selectImage("C"+currentChannel+"-RESULT-"+maskName);
+	    run("Measure");
+	    close();
+	  }
+	}
+      } else {
+	 selectImage("RESULT-"+maskName);
+	 run("Measure");
+	 close()
+      }
+    }
+
+    // Close all the images we've opened before moving to the next file
+    while (nImages>0) { 
+      selectImage(nImages); 
+      close(); 
+    } 
+  }  
+ }
+ 
+
+
