@@ -1,6 +1,8 @@
 // Edge Ratio ImageJ Macro
 // Sarah Clatterbuck Soper
 // 2014.08.27
+// Example change
+// 2014.08.29
 
 run("Clear Results");
 type = "Tiff";
