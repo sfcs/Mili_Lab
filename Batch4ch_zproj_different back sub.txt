@@ -1,0 +1,115 @@
+
+dir = getDirectory("Choose a Directory "); 
+dir2 = getDirectory("Choose Destination Directory "); 
+type = "Tiff";
+setBatchMode(true); 
+
+bgValue = 800;
+Dialog.create("What background shall we subtract?");
+Dialog.addNumber("Background value:", bgValue);
+Dialog.show();
+bgValue = Dialog.getNumber();
+
+bgValue2 = 800;
+Dialog.create("What alternate background shall we subtract?");
+Dialog.addNumber("Background value:", bgValue2);
+Dialog.show();
+bgValue2 = Dialog.getNumber();
+
+imageList = getFileList(dir);
+prevChannels = "0";
+processFiles(dir, dir2); 
+
+function processFiles(dir, dir2) {
+    // list is an array of files/folders in your directory 
+    list = getFileList(dir); 
+    for (i=0; i<list.length; i++) { 
+	// We are iterating through the list
+	if (endsWith(list[i], "/")) {
+	    // current list item is a directory.  Traverse it and iterate through it
+	    processFiles(""+dir+list[i], dir2);
+	}
+	else {
+	    // current list item is a file.  Process it.
+	    path = dir+list[i];
+  	    if (endsWith(path, ".lsm")) { 
+	        open(path); 
+	        title1=getTitle(); 
+		Stack.getDimensions(widthS, heightS, channelsS, slicesS, framesS);
+		slices=slicesS;
+		// Determine which channels to process
+
+    		if (prevChannels != channelsS) {
+      		   rows = channelsS;
+      		   columns = 1;
+     		   n = rows*columns;
+      		   labels = newArray(n);
+      		   defaults = newArray(n);
+      		   channelList = newArray(n);
+      		   for (j=0; j<n; j++) {
+			labels[j] = "Channel "+j+1;
+			defaults[j] = false;
+      		   }
+      		Dialog.create("Which channels do I process?");
+      		Dialog.addCheckboxGroup(rows,columns,labels,defaults);
+      		Dialog.show();
+
+      		   for (j=0; j<n; j++) {
+		   	channelList[j] = Dialog.getCheckbox();
+      		   }
+
+      		prevChannels = channelsS;
+    		}
+	    }
+
+ 	    processFile(path, dir2); 
+	} 
+    } 
+} 
+
+function processFile(path,dir2) { 
+    if (endsWith(path, ".lsm")) { 
+	open(path); 
+	title1=getTitle(); 
+
+	Stack.getDimensions(widthS, heightS, channelsS, slicesS, framesS);
+	slices=slicesS;
+		
+	run("Z Project...", "start=1 stop="+slices+" projection=[Max Intensity]");
+	      if (channelsS > 1) {
+		run("Split Channels");
+		for (k=0; k<channelList.length; k++) {
+	  	  if (channelList[k] == true) {
+	    		currentChannel = k+1;
+	    		selectImage("C"+currentChannel+"-MAX_"+title1);
+	    		run("Subtract...", "value="+bgValue);
+                   }else {
+	    		currentChannel = k+1;
+	    		selectImage("C"+currentChannel+"-MAX_"+title1);
+	    		run("Subtract...", "value="+bgValue2);
+		   } 
+		 }
+	       }
+
+	run("Concatenate...", "  title=title1 image1=[" + "C1-MAX_"+title1 + "] image2=[" + "C2-MAX_"+title1 + "] image3=[" + "C3-MAX_"+title1 + "] image4=[" + "C4-MAX_"+title1 + "] ");
+
+	run("Stack to Hyperstack...", "order=xyczt(default) channels=4 slices=1 frames=1 display=Color");
+	
+	Stack.setPosition(1,1,1);
+	run("Blue");
+	Stack.setPosition(2,1,1);
+	run("Green");
+	Stack.setPosition(3,1,1);
+	run("Red");
+	Stack.setPosition(4,1,1);
+	run("Magenta");
+
+	saveAs(type,dir2+title1); 
+	
+	// Close all the images we've opened before moving to the next file
+	while (nImages>0) { 
+	  selectImage(nImages); 
+	  close(); 
+	} 
+    }
+}
