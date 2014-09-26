@@ -73,10 +73,21 @@ for ($i=0; $i<=15; $i++) {
       }
     }
     print "\n";
-    for ($j=0; $j<(scalar @{$channelList[$i]}); $j++) {
+    FILE: for ($j=0; $j<(scalar @{$channelList[$i]}); $j++) {
       $file = $channelList[$i][$j];
       $debug && print "3: File is $file\n";
-      $data{$file}->{'OUTER'} = $data{$file}{'FULL'} - $data{$file}{'INNER'};
+
+      # Calculate the area of the edge by subtracting the inner mask from the full mask
+      $edgearea = $data{$file}{'FULL'} - $data{$file}{'INNER'};
+
+      # If the edge area isn't bigger than zero there is a problem
+      if ($edgearea <= 0) {
+	warn "Problem with $file: The edge area is less than or equal to zero\n";
+	next FILE;
+      }
+
+      
+      $data{$file}->{'OUTER'} = $edgearea;
       $data{$file}->{'RATIO'} = $data{$file}->{'OUTER'} / $data{$file}{'FULL'};
       print "$file\t$data{$file}{'FULL'}\t$data{$file}{'OUTER'}\t$data{$file}{'RATIO'}";
       for ($k=0; $k<=3; $k++) {
