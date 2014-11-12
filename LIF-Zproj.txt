@@ -1,0 +1,55 @@
+
+lifFile = File.openDialog("First Choose a LIF File "); 
+dir2 = getDirectory("Now Choose a Destination Directory "); 
+setBatchMode(true); 
+
+prevChannels = "0";
+open(lifFile);
+
+while (nImages>0) { 
+  title1=getTitle(); 
+  Stack.getDimensions(widthS, heightS, channelsS, slicesS, framesS);
+
+  if (prevChannels != channelsS) {
+    rows = channelsS;
+    columns = 1;
+    n = rows*columns;
+    labels = newArray(n);
+    defaults = newArray(n);
+    channelList = newArray(n);
+    for (j=0; j<n; j++) {
+      labels[j] = "Channel "+j+1;
+      defaults[j] = false;
+    }
+    Dialog.create("Background subtraction?");
+    Dialog.addMessage("Please specify the background to subtract.\n");
+    for (j=0; j<n; j++) {
+      label = "Channel "+j+1;
+      bgDefault = "0";
+      Dialog.addNumber(label, bgDefault);
+    }
+    Dialog.show();
+    for (j=0; j<n; j++) {
+      channelList[j] = Dialog.getNumber();
+    }
+  }
+
+  if (slicesS > 1) {
+    run("Z Project...", "start=1 stop="+slicesS+" projection=[Max Intensity]");
+    close(title1);
+  } else {
+    print("File "+title1+" is not a Z-stack.\n");
+    run("Make Composite");
+  }
+
+  for (k=0; k<channelList.length; k++) {
+    currentChannel = k+1;
+    Stack.setChannel(currentChannel);
+    print("Processing "+title1+": Subtracting "+channelList[k]+" from channel "+currentChannel+"\n");
+    run("Subtract...", "value="+channelList[k]+" slice");
+  }
+
+  saveAs("Tiff",dir2+title1);
+  close();
+  prevChannels = channelsS;
+ }
