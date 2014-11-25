@@ -23,7 +23,7 @@ while (<>) {
     # Split the columns into an array
     @cols = split /\t/;
     $debug && print "$cols[1]\n";
-    ($stripped, $junk) = split /\./, $cols[1]; 
+    ($stripped, $junk) = split /\.([^\.]+)$/, $cols[1]; 
     ($half,$file) = split /MASK-/, $stripped;
     if ($half =~ /RESULT/) {
       chop $half;
