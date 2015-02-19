@@ -1,0 +1,13 @@
+
+lifFile = File.openDialog("First Choose a LIF File "); 
+dir2 = getDirectory("Now Choose a Destination Directory "); 
+setBatchMode(true); 
+
+open(lifFile);
+
+while (nImages>0) { 
+  title1=getTitle(); 
+  setMinAndMax(0,4095);
+  saveAs("Tiff",dir2+title1);
+  close();
+ }

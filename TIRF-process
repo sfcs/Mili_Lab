@@ -1,0 +1,72 @@
+
+sourceDir = getDirectory("First choose a source directory:");
+destDir = getDirectory("Now choose a destination directory:"); 
+type = "Tiff";
+setBatchMode(true); 
+
+processFiles(sourceDir, destDir); 
+
+function processFiles(dir, dir2) {
+    // list is an array of files/folders in your directory 
+    list = getFileList(dir); 
+    for (i=0; i<list.length; i++) { 
+       // We are iterating throug h the list
+        if (endsWith(list[i], "/")) {
+	  // current list item is a directory.  
+	  // Traverse it and iterate through it
+	  processFiles(""+dir+list[i], dir2);
+        }
+        else {
+	  // current list item is a file.  Process it.
+	  path = dir+list[i];
+	  open(path); 
+	  title1=getTitle();
+	  print("File is "+title1);
+	  controlFile=title1+"-CONTROL";
+	  expFile=title1+"-EXP";
+	  run("Split Channels");
+	  listImages();
+	  run("Concatenate...", " title=["+controlFile+"] keep image1=[C1-"+title1+ "] image2=[C3-"+title1+"] image3=[C5-"+title1+"] image4=[-- None --]");
+	  run("Stack to Hyperstack...", "order=xyczt(default) channels=3 slices=1 frames=1 display=Color");
+        
+	  Stack.setPosition(1,1,1);
+	  run("Cyan");
+	  Stack.setPosition(2,1,1);
+	  run("Magenta");
+	  Stack.setPosition(3,1,1);
+	  run("Yellow");
+
+	  saveAs(type,dir2+controlFile); 
+	  run("Concatenate...", " title=["+expFile+"] image1=[C2-"+title1+ "] image2=[C4-"+title1+"] image3=[C5-"+title1+"] image4=[-- None --]");
+	  run("Stack to Hyperstack...", "order=xyczt(default) channels=3 slices=1 frames=1 display=Color");
+        
+	  Stack.setPosition(1,1,1);
+	  run("Cyan");
+	  Stack.setPosition(2,1,1);
+	  run("Magenta");
+	  Stack.setPosition(3,1,1);
+	  run("Yellow");
+	  saveAs(type,dir2+expFile); 
+	}
+	closeAll();
+    }
+}
+
+function listImages() {
+  names = newArray(nImages); 
+  ids = newArray(nImages); 
+  for (i=0; i < ids.length; i++){ 
+    selectImage(i+1); 
+    ids[i] = getImageID(); 
+    names[i] = getTitle(); 
+    print(ids[i] + " = " + names[i]); 
+  } 
+  print("");
+}
+
+ function closeAll() {
+   while (nImages>0) { 
+     selectImage(nImages); 
+     close(); 
+   } 
+ }
